@@ -5,14 +5,14 @@ import java.util.Map;
 
 public class InternFix {
 
-    // FIX: explicit bounded pool instead of JVM string pool
-    // We control the lifecycle — entries can be evicted or cleared
+
+
     private static final Map<String, String> stringPool = new HashMap<>();
     private static final int MAX_POOL_SIZE = 1000;
 
     public static String deduplicate(String s) {
         if (stringPool.size() >= MAX_POOL_SIZE) {
-            stringPool.clear(); // simple eviction — replace with LRU in production
+            stringPool.clear();
         }
         return stringPool.computeIfAbsent(s, k -> k);
     }
@@ -21,8 +21,7 @@ public class InternFix {
         System.out.println("Using explicit bounded pool instead of String.intern()...");
 
         for (int i = 0; i < 1_000_000; i++) {
-            // FIX: use our own pool with a size cap
-            // Strings that fall out of the pool are eligible for GC
+
             String s = deduplicate("order-id-" + i);
 
             if (i % 100_000 == 0 && i > 0) {

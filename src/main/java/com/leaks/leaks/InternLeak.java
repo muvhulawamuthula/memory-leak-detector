@@ -9,8 +9,7 @@ public class InternLeak {
         // The pool is never GC'd during normal operation
         // Interning unique dynamic strings fills it permanently
         for (int i = 0; i < 1_000_000; i++) {
-            // BUG: interning dynamically generated unique strings
-            // Each one is added to the string pool and never removed
+
             String s = ("order-id-" + i).intern();
 
             if (i % 100_000 == 0 && i > 0) {
@@ -21,7 +20,7 @@ public class InternLeak {
             }
         }
 
-        // Suggest GC — interned strings in the pool won't be collected
+
         System.gc();
         Thread.sleep(500);
 

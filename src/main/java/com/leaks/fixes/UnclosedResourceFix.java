@@ -10,8 +10,7 @@ public class UnclosedResourceFix {
         System.out.println("Opening streams with try-with-resources...");
 
         for (int i = 0; i < 5000; i++) {
-            // FIX: try-with-resources guarantees close() on every path
-            // including exceptions — the compiler generates the finally block
+
             try (BufferedReader reader = new BufferedReader(
                     new InputStreamReader(
                             new ByteArrayInputStream(new byte[1024 * 50])))) {
@@ -21,7 +20,7 @@ public class UnclosedResourceFix {
 
             } catch (Exception e) {
                 System.err.println("Error: " + e.getMessage());
-                // close() was already called before we get here
+
             }
 
             if (i % 500 == 0 && i > 0) {

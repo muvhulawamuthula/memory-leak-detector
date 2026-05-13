@@ -5,7 +5,6 @@ import java.util.List;
 
 public class EventBus {
 
-    // Single shared instance — this is the GC root that causes the leak
     private static final EventBus INSTANCE = new EventBus();
 
     private final List<EventListener> listeners = new ArrayList<>();

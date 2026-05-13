@@ -20,7 +20,7 @@ public class ThreadLocalFix {
                     requestContext.set(new byte[1024 * 500]); // 500KB
                     doWork(taskId);
                 } finally {
-                    // FIX: always remove in finally so it runs even if task throws
+
                     requestContext.remove();
                 }
             });

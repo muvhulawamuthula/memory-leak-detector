@@ -2,8 +2,7 @@ package com.leaks.leaks;
 
 public class ListenerLeak {
 
-    // Simulates a service that handles orders
-    // Each instance carries a large payload (like a real service would)
+
     static class OrderService implements EventBus.EventListener {
 
         private final String serviceId;
@@ -11,13 +10,13 @@ public class ListenerLeak {
 
         OrderService(String serviceId) {
             this.serviceId = serviceId;
-            // Registers itself on the shared bus — but never unregisters
+
             EventBus.getInstance().register(this);
         }
 
         @Override
         public void onEvent(String event) {
-            // handle event
+
         }
     }
 
@@ -25,12 +24,11 @@ public class ListenerLeak {
         System.out.println("Creating OrderServices that never unregister...");
 
         for (int i = 0; i < 1000; i++) {
-            // OrderService goes out of scope immediately after creation
-            // App thinks it's done with it — but EventBus still holds it
+
             new OrderService("service-" + i);
 
             if (i % 100 == 0) {
-                // Suggest GC — won't help because EventBus holds all references
+
                 System.gc();
                 Thread.sleep(50);
 

@@ -8,7 +8,7 @@ public class StaticCollectionFix {
 
     private static final int MAX_ENTRIES = 500;
 
-    // Fix 1 — bounded LRU cache: evicts oldest entry when limit is reached
+
     private static final Map<String, byte[]> cache = new LinkedHashMap<>(
             MAX_ENTRIES, 0.75f, true) {
         @Override
@@ -24,7 +24,7 @@ public class StaticCollectionFix {
 
         while (iteration < 2000) {
             String key = UUID.randomUUID().toString();
-            byte[] value = new byte[1024 * 100]; // 100KB per entry
+            byte[] value = new byte[1024 * 100];
 
             cache.put(key, value);
             iteration++;

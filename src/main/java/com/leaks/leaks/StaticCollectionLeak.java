@@ -6,7 +6,7 @@ import java.util.UUID;
 
 public class StaticCollectionLeak {
 
-    // This is the leak — static map that grows forever, nothing ever removes from it
+
     private static final Map<String, byte[]> cache = new HashMap<>();
 
     public static void run() throws InterruptedException {
@@ -16,7 +16,7 @@ public class StaticCollectionLeak {
 
         while (true) {
             String key = UUID.randomUUID().toString();
-            byte[] value = new byte[1024 * 100]; // 100KB per entry
+            byte[] value = new byte[1024 * 100];
 
             cache.put(key, value);
             iteration++;
@@ -28,7 +28,7 @@ public class StaticCollectionLeak {
                         iteration, used, cache.size());
             }
 
-            Thread.sleep(10); // slow it down so we can watch it climb
+            Thread.sleep(10);
         }
     }
 }

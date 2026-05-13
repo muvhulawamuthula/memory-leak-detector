@@ -16,10 +16,10 @@ public class ListenerFix {
 
         @Override
         public void onEvent(String event) {
-            // handle event
+
         }
 
-        // FIX: implement AutoCloseable and unregister on close
+
         @Override
         public void close() {
             EventBus.getInstance().unregister(this);
@@ -30,11 +30,11 @@ public class ListenerFix {
         System.out.println("Creating OrderServices that properly unregister on close...");
 
         for (int i = 0; i < 1000; i++) {
-            // try-with-resources guarantees unregister is called
+
             try (OrderService service = new OrderService("service-" + i)) {
-                // do work with service
+
                 EventBus.getInstance().publish("order.created");
-            } // close() called here — unregisters from EventBus
+            }
 
             if (i % 100 == 0) {
                 System.gc();
