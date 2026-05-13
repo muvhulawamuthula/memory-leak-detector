@@ -1,0 +1,82 @@
+Thread 0xf0964ba8
+
+  locals:
+
+Thread 0xf0964b30
+  at java.lang.OutOfMemoryError.<init>()V (OutOfMemoryError.java:48)
+  at com.leaks.leaks.StaticCollectionLeak.run()V (StaticCollectionLeak.java:19)
+  at com.leaks.runner.LeakRunner$$Lambda+0x0000715af4003800.run()V ()
+  at com.leaks.runner.LeakRunner.runScenario(Ljava/lang/String;Lcom/leaks/runner/LeakRunner$LeakScenario;)V (LeakRunner.java:25)
+  at com.leaks.runner.LeakRunner.main([Ljava/lang/String;)V (LeakRunner.java:18)
+
+  locals:
+    objectId=0xffc968c0, line=1
+    objectId=0xf0964128, line=2
+    objectId=0xf09641a8, line=3
+    objectId=0xf0964128, line=3
+    objectId=0xf09641c0, line=4
+    objectId=0xf09641d8, line=4
+
+Thread 0xf09645e8
+  at jdk.internal.misc.Unsafe.park(ZJ)V (Unsafe.java(Native Method))
+  at java.util.concurrent.locks.LockSupport.parkNanos(Ljava/lang/Object;J)V (LockSupport.java:269)
+  at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(JLjava/util/concurrent/TimeUnit;)Z (AbstractQueuedSynchronizer.java:1886)
+  at java.lang.ref.ReferenceQueue.await(J)V (ReferenceQueue.java:71)
+  at java.lang.ref.ReferenceQueue.remove0(J)Ljava/lang/ref/Reference; (ReferenceQueue.java:143)
+  at java.lang.ref.ReferenceQueue.remove(J)Ljava/lang/ref/Reference; (ReferenceQueue.java:218)
+  at jdk.internal.ref.CleanerImpl.run()V (CleanerImpl.java:140)
+  at java.lang.Thread.runWith(Ljava/lang/Object;Ljava/lang/Runnable;)V (Thread.java:1596)
+  at java.lang.Thread.run()V (Thread.java:1583)
+  at jdk.internal.misc.InnocuousThread.run()V (InnocuousThread.java:186)
+
+  locals:
+    objectId=0xf0964670, line=1
+    objectId=0xf09645e8, line=1
+    objectId=0xf0964670, line=2
+    objectId=0xf0964688, line=2
+    objectId=0xf09646d8, line=2
+    objectId=0xf09646f8, line=3
+    objectId=0xf09646f8, line=4
+    objectId=0xf09646f8, line=5
+    objectId=0xf0964718, line=6
+    objectId=0xf09645e8, line=6
+    objectId=0xf09645e8, line=6
+    objectId=0xf09645e8, line=7
+    objectId=0xffe5cac0, line=7
+    objectId=0xf0964718, line=7
+    objectId=0xf09645e8, line=8
+    objectId=0xf0964718, line=8
+    objectId=0xffe5cac0, line=8
+    objectId=0xf09645e8, line=9
+
+Thread 0xf0964208
+  at java.lang.Object.wait0(J)V (Object.java(Native Method))
+  at java.lang.Object.wait(J)V (Object.java:366)
+  at java.lang.Object.wait()V (Object.java:339)
+  at java.lang.ref.NativeReferenceQueue.await()V (NativeReferenceQueue.java:48)
+  at java.lang.ref.ReferenceQueue.remove0()Ljava/lang/ref/Reference; (ReferenceQueue.java:158)
+  at java.lang.ref.NativeReferenceQueue.remove()Ljava/lang/ref/Reference; (NativeReferenceQueue.java:89)
+  at java.lang.ref.Finalizer$FinalizerThread.run()V (Finalizer.java:173)
+
+  locals:
+    objectId=0xf0964280, line=1
+    objectId=0xf0964280, line=2
+    objectId=0xf0964290, line=3
+    objectId=0xf0964290, line=4
+    objectId=0xf0964290, line=5
+    objectId=0xf0964280, line=5
+    objectId=0xf0964208, line=6
+    objectId=0xf09642b8, line=6
+
+Thread 0xf0965318
+
+  locals:
+
+Thread 0xf0964518
+  at java.lang.ref.Reference.waitForReferencePendingList()V (Reference.java(Native Method))
+  at java.lang.ref.Reference.processPendingReferences()V (Reference.java:246)
+  at java.lang.ref.Reference$ReferenceHandler.run()V (Reference.java:208)
+
+  locals:
+    objectId=0xf0964518, line=2
+
