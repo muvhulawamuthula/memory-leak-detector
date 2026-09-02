@@ -1,67 +1,52 @@
 # Memory Leak Detector
 
-A hands-on Java project that deliberately reproduces five classic JVM memory leak patterns, then detects and fixes each one using real profiling tools — Eclipse MAT, JFR, and heap dumps.
+Five classic JVM memory leak patterns — **reproduced**, inspected with **Eclipse MAT** / heap dumps, and **fixed**. Java 21.
 
-Built to develop the diagnostic instincts that separate senior engineers from developers who guess at performance problems.
+Built as a hands-on lab for the diagnostic habits that matter in production: reading GC pressure, capturing a dump, finding retained heap, and proving a fix with a before/after heap comparison.
 
----
-
-## What this project covers
-
-| # | Leak pattern | Root cause | Fix strategy |
-|---|---|---|---|
-| 1 | Static collection | Unbounded `HashMap` as static field | Bounded `LinkedHashMap` with LRU eviction |
-| 2 | ThreadLocal | `set()` without `remove()` on pooled thread | `try/finally { remove() }` |
-| 3 | Listener / callback | Register without unregister on shared event bus | `AutoCloseable` + `try-with-resources` |
-| 4 | Unclosed resource | Stream opened, never closed on error path | `try-with-resources` on every resource |
-| 5 | String intern | Dynamic strings interned into permanent JVM pool | Explicit bounded pool with eviction |
+| | |
+|---|---|
+| **Language** | Java 21 |
+| **Build** | Maven (`maven-shade-plugin` → runnable jar) |
+| **Entry point** | `com.leaks.runner.LeakRunner` |
+| **Scenarios** | `static` · `threadlocal` · `listener` · `resource` · `intern` · `all` |
 
 ---
 
-## Project structure
+## The five leaks
 
-```
-src/main/java/com/leaks/
-├── leaks/
-│   ├── StaticCollectionLeak.java   # Unbounded static HashMap grows forever
-│   ├── ThreadLocalLeak.java        # ThreadLocal never removed from pooled threads
-│   ├── ListenerLeak.java           # EventBus holds references to discarded services
-│   ├── EventBus.java               # Shared singleton event bus
-│   ├── UnclosedResourceLeak.java   # Streams opened but never closed
-│   └── InternLeak.java             # Unique strings interned into JVM string pool
-├── fixes/
-│   ├── StaticCollectionFix.java    # LinkedHashMap with removeEldestEntry
-│   ├── ThreadLocalFix.java         # try/finally with ThreadLocal.remove()
-│   ├── ListenerFix.java            # AutoCloseable unregisters on close
-│   ├── UnclosedResourceFix.java    # try-with-resources on every stream
-│   └── InternFix.java              # Explicit bounded string pool
-└── runner/
-    └── LeakRunner.java             # Harness: runs any leak or fix with heap monitoring
-```
+| # | Scenario arg | Pattern | Retention root | Fix in this repo |
+|---|---|---|---|---|
+| 1 | `static` | Unbounded static `HashMap` | Static field (GC root) | Bounded LRU `LinkedHashMap` (`removeEldestEntry`, max 500) |
+| 2 | `threadlocal` | `ThreadLocal.set` without `remove` on pooled threads | Live pool threads → `ThreadLocalMap` | `try/finally { requestContext.remove() }` |
+| 3 | `listener` | Register on singleton bus, never unregister | `EventBus.INSTANCE` → listener list | `AutoCloseable` + `try-with-resources` |
+| 4 | `resource` | Streams opened and retained without `close` | Strong refs in a collection + unclosed readers | `try-with-resources` (no retained list) |
+| 5 | `intern` | Unique dynamic strings via `String.intern()` | JVM string pool / Metaspace | Explicit bounded `HashMap` pool (clear at 1000) |
+
+Deep dives with code-accurate behaviour: **[docs/leaks.md](docs/leaks.md)**  
+Package layout, runner, and JVM flags: **[docs/architecture.md](docs/architecture.md)**
 
 ---
 
 ## Prerequisites
 
-- Java 21+
-- Maven 3.8+
-- Eclipse MAT (for heap dump analysis) — [download here](https://eclipse.dev/mat/downloads.php)
+- **Java 21+**
+- **Maven 3.8+**
+- **Eclipse MAT** (optional, for heap analysis) — [download](https://eclipse.dev/mat/downloads.php)
 
 ---
 
-## Getting started
+## Quick start
 
 ```bash
-git clone https://github.com/yourusername/memory-leak-detector.git
+git clone https://github.com/muvhulawamuthula/memory-leak-detector.git
 cd memory-leak-detector
 mvn package -q
 ```
 
----
+Main class is wired by the shade plugin to `com.leaks.runner.LeakRunner` (ignore the stub `com.leaks.App`).
 
-## Running scenarios
-
-### Run a single leak
+### Run a leak (small heap + auto dump on OOM)
 
 ```bash
 java -Xmx256m \
@@ -70,306 +55,121 @@ java -Xmx256m \
      -jar target/memory-leak-detector-1.0-SNAPSHOT.jar leak static
 ```
 
-Available scenarios: `static` · `threadlocal` · `listener` · `resource` · `intern` · `all`
-
-### Run the corresponding fix
+### Run the matching fix
 
 ```bash
 java -Xmx256m \
      -jar target/memory-leak-detector-1.0-SNAPSHOT.jar fix static
 ```
 
-### Run all leaks then all fixes
+### All scenarios
 
 ```bash
-# All leaks in sequence — will OOM on static collection
+# Leaks in sequence — static collection runs forever until OOM / Ctrl+C
 java -Xmx256m \
      -XX:+HeapDumpOnOutOfMemoryError \
      -XX:HeapDumpPath=./heap-all.hprof \
      -Xlog:gc*:file=gc.log \
      -jar target/memory-leak-detector-1.0-SNAPSHOT.jar leak all
 
-# All fixes — heap stays flat throughout
+# Fixes — bounded / cleaned; heap should stay controlled
 java -Xmx256m \
      -jar target/memory-leak-detector-1.0-SNAPSHOT.jar fix all
 ```
 
+**CLI:** `java -jar … [leak|fix] [static|threadlocal|listener|resource|intern|all]`  
+Defaults: mode `leak`, scenario `all`. The runner prints the process **PID** on startup (useful for `jcmd`).
+
 ---
 
-## JVM flags explained
+## JVM flags used here
 
-| Flag | Purpose |
+| Flag | Why |
 |---|---|
-| `-Xmx256m` | Small heap so leaks hit OOM faster |
-| `-XX:+HeapDumpOnOutOfMemoryError` | Auto-captures heap dump on OOM |
-| `-XX:HeapDumpPath=./heap.hprof` | Where to write the dump |
-| `-Xlog:gc*:file=gc.log` | GC log — reveals leak signature (GC running constantly, reclaiming nothing) |
+| `-Xmx256m` | Small heap so growth / OOM shows up quickly |
+| `-XX:+HeapDumpOnOutOfMemoryError` | Write a dump when the heap dies |
+| `-XX:HeapDumpPath=./heap.hprof` | Dump path (gitignored: `*.hprof`) |
+| `-Xlog:gc*:file=gc.log` | GC log for the “reclaim nothing” signature |
 
 ---
 
-## Detecting leaks with Eclipse MAT
+## Heap dumps and MAT artifacts in this repo
 
-### 1. Trigger the heap dump
+Raw `*.hprof` dumps are **gitignored**. What you may see in the repo root are **Eclipse MAT index / report artifacts** from a prior analysis of a dump named `heap-leak` (e.g. `heap-leak.index`, `heap-leak.*.index`, `heap-leak.threads`, `heap-leak_Leak_Suspects.zip`) plus a sample GC log (`gc.log.0`).
 
-Either let the app OOM (dump is written automatically), or trigger manually:
+Those files document that MAT was run against a captured dump; regenerate your own dump with the flags above (or `jcmd <PID> GC.heap_dump heap-manual.hprof`), then open it in MAT.
 
-```bash
-# Get the PID from the runner output
-jcmd <PID> GC.heap_dump heap-manual.hprof
-```
+High-level MAT flow (same as typical Eclipse MAT usage):
 
-### 2. Open MAT
+1. Open the `.hprof` in MAT (`File → Open Heap Dump`).
+2. Run **Leak Suspects** from the Overview actions (a Suspects zip may already exist under the `heap-leak_*` name for a prior run).
+3. Use the **Dominator Tree**, sorted by **Retained Heap**.
+4. From a suspect: **Path to GC Roots → exclude weak references** to see why the object stays alive.
 
-```
-File → Open Heap Dump → select heap.hprof
-```
-
-### 3. Run Leak Suspects report
-
-```
-Overview → Actions → Leak Suspects
-```
-
-MAT automatically identifies the biggest retained heap holders and shows the reference chain to the GC root.
-
-### 4. Inspect the Dominator Tree
-
-```
-Overview → Actions → Dominator Tree
-```
-
-Sort by **Retained Heap** descending. The leak will be at the top.
-
-### 5. Trace the GC root path
-
-```
-Right-click the suspect object → Path to GC Roots → Exclude weak references
-```
-
-This shows exactly why GC cannot collect the object — the chain always ends at a static field, a live thread, or a JNI reference.
+Do not treat index files as a substitute for opening a fresh dump when you change scenarios.
 
 ---
 
-## What the GC log reveals
+## What a leak looks like in the GC log
 
-A healthy app shows GC running occasionally and reclaiming most of the heap:
+Healthy (young GC reclaims most of the nursery):
 
-```
-GC(4)  Pause Young  80M->12M   ← collected 68MB, healthy
-GC(5)  Pause Young  80M->11M   ← same
-```
-
-A leaking app shows GC running constantly and reclaiming nothing:
-
-```
-GC(41)  Pause Young  240M->238M  ← collected 2MB, struggling
-GC(42)  Pause Full   254M->254M  ← full GC, still can't free anything
-GC(43)  java.lang.OutOfMemoryError: Java heap space
+```text
+Pause Young  80M->12M
 ```
 
-That pattern — increasing GC frequency with decreasing reclaim — is the signature of a memory leak before it hits OOM.
+Leaking (frequent GC, almost no reclaim → Full GC → OOM):
+
+```text
+Pause Young  240M->238M
+Pause Full   254M->254M
+OutOfMemoryError: Java heap space
+```
+
+The runner also prints before/after used/total/max heap per scenario via `Runtime`.
 
 ---
 
-## Leak deep dives
+## Project layout (summary)
 
-### 1. Static collection leak
-
-**The leak:**
-```java
-private static final Map<String, byte[]> cache = new HashMap<>();
-
-public static void store(String key) {
-    cache.put(key, new byte[1024 * 100]); // never removed
-}
+```text
+src/main/java/com/leaks/
+├── leaks/     # deliberate leak demos + EventBus singleton
+├── fixes/     # matching fixes
+└── runner/    # LeakRunner CLI + heap snapshots
+docs/
+├── architecture.md
+└── leaks.md
 ```
 
-Static fields are GC roots. Anything reachable from a static field can never be collected. An unbounded static map grows until OOM.
-
-**MAT finding:** `StaticCollectionLeak.cache` → `HashMap` → `byte[]` × N, retaining the entire heap.
-
-**The fix:**
-```java
-private static final Map<String, byte[]> cache = new LinkedHashMap<>(500, 0.75f, true) {
-    protected boolean removeEldestEntry(Map.Entry<String, byte[]> eldest) {
-        return size() > 500;
-    }
-};
-```
+Full structure and data-flow notes: [docs/architecture.md](docs/architecture.md).
 
 ---
 
-### 2. ThreadLocal leak
+## Key ideas (short)
 
-**The leak:**
-```java
-private static final ThreadLocal<byte[]> context = new ThreadLocal<>();
-
-pool.submit(() -> {
-    context.set(new byte[1024 * 500]);
-    doWork();
-    // BUG: no context.remove() — thread returns to pool with value attached
-});
-```
-
-Thread pool threads never die. `ThreadLocal` values attached to them are reachable via the live thread — GC cannot collect them. Every task that forgets `remove()` permanently retains another 500KB.
-
-**MAT finding:** Live pool threads → `ThreadLocalMap` → `ThreadLocalMap$Entry[]` → `byte[]` × 10.
-
-**The fix:**
-```java
-pool.submit(() -> {
-    try {
-        context.set(new byte[1024 * 500]);
-        doWork();
-    } finally {
-        context.remove(); // always runs, even if doWork() throws
-    }
-});
-```
-
----
-
-### 3. Listener leak
-
-**The leak:**
-```java
-class OrderService implements EventBus.EventListener {
-    OrderService(String id) {
-        EventBus.getInstance().register(this); // never unregisters
-    }
-}
-
-new OrderService("svc-1"); // goes out of scope, but NOT collected
-```
-
-The singleton `EventBus` is a GC root. Every registered listener is reachable from it. Services that go out of scope in application code are still strongly referenced by the bus.
-
-**MAT finding:** `EventBus.INSTANCE` → `ArrayList` → `OrderService[]` → `byte[]` × 1000.
-
-**The fix:**
-```java
-class OrderService implements EventBus.EventListener, AutoCloseable {
-    @Override
-    public void close() {
-        EventBus.getInstance().unregister(this);
-    }
-}
-
-try (OrderService svc = new OrderService("svc-1")) {
-    EventBus.getInstance().publish("order.created");
-} // close() called — unregistered, now eligible for GC
-```
-
----
-
-### 4. Unclosed resource leak
-
-**The leak:**
-```java
-BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
-// process data...
-// BUG: no reader.close() on exception paths
-```
-
-Resources hold native handles. Without `close()`, they accumulate. The problem is worst on error paths where `close()` is written for the happy path but skipped when an exception is thrown.
-
-**The fix:**
-```java
-try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream))) {
-    reader.readLine();
-} // compiler generates finally { reader.close() } — runs on every path
-```
-
----
-
-### 5. String intern leak
-
-**The leak:**
-```java
-for (int i = 0; i < 1_000_000; i++) {
-    String s = ("order-id-" + i).intern(); // unique string added to JVM pool permanently
-}
-```
-
-`String.intern()` stores strings in the JVM string pool which lives in Metaspace. The pool is not garbage collected during normal JVM operation. Interning dynamically generated unique strings fills Metaspace permanently.
-
-**The fix:**
-```java
-private static final Map<String, String> pool = new LinkedHashMap<>(1000, 0.75f, true) {
-    protected boolean removeEldestEntry(Map.Entry<String, String> e) {
-        return size() > 1000;
-    }
-};
-
-public static String deduplicate(String s) {
-    return pool.computeIfAbsent(s, k -> k);
-}
-```
-
-Only use `String.intern()` for a small, finite, known-at-compile-time set of strings. Never intern dynamically generated strings.
-
----
-
-## Key concepts
-
-### GC roots
-
-An object is reachable — and therefore not collectible — if any path exists from a GC root to it. GC roots in the JVM are:
-
-- Static fields
-- Local variables on live thread stacks
-- Active threads themselves
-- JNI references
-
-Every memory leak in this project is an unintended path from one of these roots to an object the application considers done.
-
-### Retained vs shallow heap
-
-- **Shallow heap** — memory the object itself occupies
-- **Retained heap** — memory that would be freed if this object were collected
-
-A `HashMap` might have 48 bytes shallow heap but 200MB retained heap. Always sort the Dominator Tree by retained heap.
-
-### The leak signature in GC logs
-
-```
-Healthy:  GC running every few seconds, reclaiming 60-80% of heap
-Leaking:  GC running constantly, reclaiming < 5%, heap floor rising each cycle
-OOM:      Full GC fires repeatedly, reclaims nothing, process dies
-```
-
----
-
-## Why this matters
-
-Most developers encounter memory leaks by waiting for a production alert. This project builds the diagnostic muscle before that happens:
-
-- You know what a leak looks like in a GC log before the OOM
-- You can open a heap dump and find the culprit in under 5 minutes
-- You can trace a retention path to its GC root and explain exactly why GC cannot collect it
-- You can write the fix and prove it with a before/after heap comparison
-
-These are skills most senior candidates claim but few can demonstrate.
+- **GC roots** that show up here: static fields, live threads (and their `ThreadLocalMap`s), the singleton `EventBus`.
+- **Retained heap** (what would free if this object died) matters more than shallow size when hunting leaks.
+- Every demo is an unintended path from a root to objects the app thinks it is “done with.”
 
 ---
 
 ## Stretch goals
 
-- [ ] Add a `WeakHashMap` variant of the static collection leak — observe how weak references interact with GC
-- [ ] Reproduce a classloader leak using a custom `URLClassLoader` — root cause of most app server leaks on redeploy
-- [ ] Add JFR continuous recording and compare allocation rate profiles between leak and fix runs
-- [ ] Write a `WeakReference` + `GC.runFinalization()` unit test that asserts no leak — automated regression testing for memory
-- [ ] Add `-XX:NativeMemoryTracking=summary` and observe Metaspace growth during the intern leak
+- [ ] `WeakHashMap` variant of the static cache — watch weak keys vs strong values
+- [ ] Classloader leak via custom `URLClassLoader` (classic app-server redeploy leak)
+- [ ] JFR continuous recording — compare allocation rates leak vs fix
+- [ ] WeakReference-based regression test that fails if retained size stays high
+- [ ] `-XX:NativeMemoryTracking=summary` during the intern scenario (Metaspace / NMT)
 
 ---
 
 ## References
 
-- [Java Garbage Collection Tuning Guide](https://docs.oracle.com/en/java/javase/21/gctuning/)
-- [Eclipse MAT Documentation](https://help.eclipse.org/latest/index.jsp?topic=/org.eclipse.mat.ui.help/welcome.html)
+- [Java SE 21 GC Tuning Guide](https://docs.oracle.com/en/java/javase/21/gctuning/)
+- [Eclipse MAT documentation](https://help.eclipse.org/latest/index.jsp?topic=/org.eclipse.mat.ui.help/welcome.html)
 - [JEP 328 — Java Flight Recorder](https://openjdk.org/jeps/328)
-- [Aleksey Shipilëv — JVM Internals](https://shipilev.net)
+- [Aleksey Shipilëv — JVM internals](https://shipilev.net)
 
 ---
 
