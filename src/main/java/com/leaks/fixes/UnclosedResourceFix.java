@@ -15,7 +15,6 @@ public class UnclosedResourceFix {
                     new InputStreamReader(
                             new ByteArrayInputStream(new byte[1024 * 50])))) {
 
-                // do work with reader
                 reader.readLine();
 
             } catch (Exception e) {
