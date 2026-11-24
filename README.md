@@ -375,4 +375,5 @@ These are skills most senior candidates claim but few can demonstrate.
 
 ## License
 
-MIT
+
+MIT. See [LICENSE](LICENSE).
